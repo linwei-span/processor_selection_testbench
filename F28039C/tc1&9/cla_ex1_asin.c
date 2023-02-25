@@ -1,8 +1,8 @@
 //###########################################################################
 //
-// FILE:   cla_asin_cpu01.c
+// FILE:   cla_ex1_asin.c
 //
-// TITLE:  CLA Arcsine Example for F2837xD.
+// TITLE:  CLA Arcsine Example for F2838x.
 //
 //! \addtogroup cpu01_example_list
 //! <h1>CLA \f$arcsine(x)\f$ using a lookup table (cla_asin_cpu01)</h1>
@@ -19,19 +19,15 @@
 //!    - fVal - Sample input to the lookup algorithm
 //!
 //! \b Watch \b Variables \n
-//!  - fVal          - Argument to task 1
-//!  - fResult       - Result of \f$arcsin(fVal)\f$
-//!  - y             - Array that holds the calculated asin values
-//!  - asin_expected - Array that holds the expected asin values
-//!  - pass          - pass counter
-//!  - fail          - fail counter
+//!  - fVal - Argument to task 1
+//!  - fResult - Result of \f$arcsin(fVal)\f$
 //!
 //
 //###########################################################################
 //
-// $Release Date:  $
+//
 // $Copyright:
-// Copyright (C) 2013-2022 Texas Instruments Incorporated - http://www.ti.com/
+// Copyright (C) 2022 Texas Instruments Incorporated - http://www.ti.com/
 //
 // Redistribution and use in source and binary forms, with or without 
 // modification, are permitted provided that the following conditions 
@@ -66,9 +62,8 @@
 //
 // Included Files
 //
-#include "F28x_Project.h"
-#include "cla_asin_shared.h"
-#include "F2837xD_gpio.h"
+#include "f28x_project.h"
+#include "cla_ex1_asin_shared.h"
 
 #define PI_CONTROLLER_TEST
 
@@ -138,9 +133,9 @@ float y[BUFFER_SIZE];
 //The Exponential table
 //
 #ifdef __cplusplus
-#pragma DATA_SECTION("CLADataLS0")
+#pragma DATA_SECTION("CLADataLS1")
 #else
-#pragma DATA_SECTION(CLAasinTable,"CLADataLS0")
+#pragma DATA_SECTION(CLAasinTable,"CLADataLS1")
 #endif //__cplusplus
 float CLAasinTable[]={
     0.0, 1.0, 0.0,
@@ -251,15 +246,17 @@ void main(void)
 //
 // Step 1. Initialize System Control:
 // PLL, WatchDog, enable Peripheral Clocks
-// This example function is found in the F2837xD_SysCtrl.c file.
+// This example function is found in the <device>_sysctrl.c file.
 //
     InitSysCtrl();
 
     InitGpio(); // Skipped for this example
     EALLOW;
     GpioCtrlRegs.GPADIR.bit.GPIO31 = 1;
+    GpioCtrlRegs.GPBDIR.bit.GPIO34 = 1;
     EDIS;
     GpioDataRegs.GPADAT.bit.GPIO31 = 1;// turn off LED
+    GpioDataRegs.GPBDAT.bit.GPIO34 = 1;
 
 //
 // Step 2. Clear all interrupts and initialize PIE vector table:
@@ -271,7 +268,7 @@ void main(void)
 // Initialize the PIE control registers to their default state.
 // The default state is all PIE interrupts disabled and flags
 // are cleared.
-// This function is found in the F2837xD_PieCtrl.c file.
+// This function is found in the <device>_piectrl.c file.
 //
     InitPieCtrl();
 
@@ -282,12 +279,10 @@ void main(void)
     IFR = 0x0000;
 
 //
-// Initialize the PIE vector table with pointers to the shell Interrupt
+// Initialize the PIE vector table with pointers to the default Interrupt
 // Service Routines (ISR).
-// This will populate the entire table, even if the interrupt
-// is not used in this example.  This is useful for debug purposes.
-// The shell ISR routines are found in F2837xD_DefaultIsr.c.
-// This function is found in F2837xD_PieVect.c.
+// The default ISR routines are found in <device>_defaultisr.c.
+// This function is found in <device>_pievect.c.
 //
     InitPieVectTable();
 
@@ -304,24 +299,19 @@ void main(void)
     EINT;  // Enable Global interrupt INTM
     ERTM;  // Enable Global realtime interrupt DBGM
 
-#ifdef PI_CONTROLLER_TEST
-    subsystem1_init(&subsystem1_m_Data);
-#endif
 //
 // Step 5. Run the test
 //
-    while(1)
+#ifdef PI_CONTROLLER_TEST
+    subsystem1_init(&subsystem1_m_Data);
+#endif
+
+    for(;;)
     {
         CLA_runTest();
     }
-
-//
-// Software breakpoint
-//
-    asm(" ESTOP0");
 }
 
-//#define RUN_CLA
 //
 // CLA_runTest - Execute CLA task tests for specified vectors
 //
@@ -332,15 +322,27 @@ void CLA_runTest(void)
     subsystem1_step(&subsystem1_m_Data);
     GPIO_WritePin(31, 0);
 #else
-    int16_t i, error;
+    int16_t i;
+    float error;
 
     for(i=0; i < BUFFER_SIZE; i++)
     {
         fVal= (float)(BUFFER_SIZE - i)/(float)BUFFER_SIZE;
         GPIO_WritePin(31, 1);
-#ifdef RUN_CLA
         Cla1ForceTask1andWait();
-#else
+        GPIO_WritePin(31, 0);
+        y[i] = fResult;
+        error = fabsf(asin_expected[i]-y[i]);
+
+        if(error < 0.1f)
+        {
+            pass++;
+        }
+        else
+        {
+            fail++;
+        }
+        GPIO_WritePin(34, 1);
         //
         //Local Variables
         //
@@ -372,23 +374,12 @@ void CLA_runTest(void)
         }
 
         fResult = result;
-#endif
-        GPIO_WritePin(31, 0);
-
-        y[i] = fResult;
-        error = fabs(asin_expected[i]-y[i]);
-
-        if(error < 0.1)
-        {
-            pass++;
-        }
-        else
-        {
-            fail++;
-        }
+        GPIO_WritePin(34, 0);
     }
 #endif
-
+    //
+    // CLA tasks 2-8 are not used in this example
+    //
 #if 0
     Cla1ForceTask2andWait();
     WAITSTEP;
@@ -418,15 +409,15 @@ void CLA_runTest(void)
 //
 void CLA_configClaMemory(void)
 {
-    extern uint32_t Cla1funcsRunStart, Cla1funcsLoadStart, Cla1funcsLoadSize;
+    extern uint32_t Cla1ProgRunStart, Cla1ProgLoadStart, Cla1ProgLoadSize;
     EALLOW;
 
 #ifdef _FLASH
     //
     // Copy over code from FLASH to RAM
     //
-    memcpy((uint32_t *)&Cla1funcsRunStart, (uint32_t *)&Cla1funcsLoadStart,
-           (uint32_t)&Cla1funcsLoadSize);
+    memcpy((uint32_t *)&Cla1ProgRunStart, (uint32_t *)&Cla1ProgLoadStart,
+           (uint32_t)&Cla1ProgLoadSize);
 #endif //_FLASH
 
     //
@@ -442,25 +433,18 @@ void CLA_configClaMemory(void)
     while(MemCfgRegs.MSGxINITDONE.bit.INITDONE_CPUTOCLA1 != 1){};
 
     //
-    // Select LS4RAM and LS5RAM to be the programming space for the CLA
-    // First configure the CLA to be the master for LS4 and LS5 and then
-    // set the space to be a program block
+    // CLA Program will reside in RAMLS0 and data in RAMLS1, RAMLS2
     //
-    MemCfgRegs.LSxMSEL.bit.MSEL_LS4 = 1;
-    MemCfgRegs.LSxCLAPGM.bit.CLAPGM_LS4 = 1;
-    MemCfgRegs.LSxMSEL.bit.MSEL_LS5 = 1;
-    MemCfgRegs.LSxCLAPGM.bit.CLAPGM_LS5 = 1;
+    MemCfgRegs.LSxCLAPGM.bit.CLAPGM_LS0 = 1U;
+    MemCfgRegs.LSxCLAPGM.bit.CLAPGM_LS1 = 0U;
+    MemCfgRegs.LSxCLAPGM.bit.CLAPGM_LS2 = 0U;
 
     //
-    // Next configure LS0RAM and LS1RAM as data spaces for the CLA
-    // First configure the CLA to be the master for LS0(1) and then
-    // set the spaces to be code blocks
+    // Select CLA as the master of RAMLS0, RAMSL1, RAMLS2
     //
-    MemCfgRegs.LSxMSEL.bit.MSEL_LS0 = 1;
-    MemCfgRegs.LSxCLAPGM.bit.CLAPGM_LS0 = 0;
-
-    MemCfgRegs.LSxMSEL.bit.MSEL_LS1 = 1;
-    MemCfgRegs.LSxCLAPGM.bit.CLAPGM_LS1 = 0;
+    MemCfgRegs.LSxMSEL.bit.MSEL_LS0 = 1U;
+    MemCfgRegs.LSxMSEL.bit.MSEL_LS1 = 1U;
+    MemCfgRegs.LSxMSEL.bit.MSEL_LS2 = 1U;
 
     EDIS;
 }
@@ -471,10 +455,12 @@ void CLA_configClaMemory(void)
 void CLA_initCpu1Cla1(void)
 {
     //
-    // Compute all CLA task vectors
-    // On Type-1 CLAs the MVECT registers accept full 16-bit task addresses as
-    // opposed to offsets used on older Type-0 CLAs
+    // Suppressing #770-D conversion from pointer to smaller integer
+    // The CLA address range is 16 bits so the addresses passed to the MVECT
+    // registers will be in the lower 64KW address space. Turn the warning
+    // back on after the MVECTs are assigned addresses
     //
+#pragma diag_suppress=770
     EALLOW;
     Cla1Regs.MVECT1 = (uint16_t)(&Cla1Task1);
     Cla1Regs.MVECT2 = (uint16_t)(&Cla1Task2);
@@ -484,6 +470,7 @@ void CLA_initCpu1Cla1(void)
     Cla1Regs.MVECT6 = (uint16_t)(&Cla1Task6);
     Cla1Regs.MVECT7 = (uint16_t)(&Cla1Task7);
     Cla1Regs.MVECT8 = (uint16_t)(&Cla1Task8);
+#pragma diag_warning=770
 
     //
     // Enable the IACK instruction to start a task on CLA in software
