@@ -24,8 +24,10 @@
 //#define RUN_TEST_4
 //#define RUN_TEST_5
 //#define RUN_TEST_6
-#define RUN_TEST_7
+//#define RUN_TEST_7
 //#define RUN_TEST_8
+#define RUN_TEST_9
+
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -291,6 +293,11 @@ float fVal; //input
 float fResult;  //Estimated result
 #endif
 
+#ifdef RUN_TEST_9
+#include "subsystem1.h"
+subsystem1_ModelData subsystem1_m_Data;
+#endif
+
 uint16_t pass=0;
 uint16_t fail=0;
 
@@ -360,6 +367,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+#ifdef RUN_TEST_9
+  subsystem1_init(&subsystem1_m_Data);
+#endif
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -848,6 +859,12 @@ int main(void)
 	{
 	   fail++;
 	}
+#endif
+
+#ifdef RUN_TEST_9
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3, GPIO_PIN_SET);
+	subsystem1_step(&subsystem1_m_Data);
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3, GPIO_PIN_RESET);
 #endif
 
 //    /* USER CODE BEGIN 3 */

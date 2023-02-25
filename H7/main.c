@@ -827,7 +827,6 @@ int main(void)
 	}
 #endif
 
-
 #ifdef RUN_TEST_9
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
 	subsystem1_step(&subsystem1_m_Data);
