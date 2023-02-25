@@ -23,10 +23,12 @@
 //#define RUN_TEST_5
 //#define RUN_TEST_6
 //#define RUN_TEST_7
-#define RUN_TEST_8
+//#define RUN_TEST_8
+#define RUN_TEST_9
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "math.h"
 
 /** @addtogroup STM32H7xx_HAL_Examples
   * @{
@@ -260,8 +262,14 @@ int32   i;
 #endif
 
 #ifdef RUN_TEST_8
+#include "arm_math.h"
 float fVal; //input
 float fResult;  //Estimated result
+#endif
+
+#ifdef RUN_TEST_9
+#include "subsystem1.h"
+subsystem1_ModelData subsystem1_m_Data;
 #endif
 
 uint16_t pass=0;
@@ -324,6 +332,10 @@ int main(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.Pin = GPIO_PIN_10;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+#ifdef RUN_TEST_9
+  subsystem1_init(&subsystem1_m_Data);
+#endif
 
   /* -3- Toggle IO in an infinite loop */
   while (1)
@@ -410,7 +422,7 @@ int main(void)
 		//Step(2):   Identify the integer and mantissa of the input
 		//
 		Idx = (int)X;
-		Xm = significand(X);
+		Xm = frexpf(X, &Idx);
 
 		//
 		//Step(3):   Obtain the e^integer(x) from the table
@@ -801,7 +813,8 @@ int main(void)
 	fVal = 2;
 
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-	fResult = sqrt(fVal);
+//	fResult = sqrt(fVal);
+	arm_sqrt_f32(fVal, &fResult);
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
 
 	if(fResult < 1.4143 && fResult > 1.4141)
@@ -814,6 +827,12 @@ int main(void)
 	}
 #endif
 
+
+#ifdef RUN_TEST_9
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+	subsystem1_step(&subsystem1_m_Data);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+#endif
 //    HAL_GPIO_TogglePin(LED1_GPIO_PORT, LED1_PIN);
 //    /* Insert delay 100 ms */
 //    HAL_Delay(100);
